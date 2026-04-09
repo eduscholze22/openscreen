@@ -39,6 +39,8 @@ const WEBCAM_TARGET_WIDTH = 1280;
 const WEBCAM_TARGET_HEIGHT = 720;
 const WEBCAM_TARGET_FRAME_RATE = 30;
 
+const MIN_REGION_RATIO = 0.001;
+
 type UseScreenRecorderReturn = {
 	recording: boolean;
 	paused: boolean;
@@ -103,6 +105,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const microphoneStream = useRef<MediaStream | null>(null);
 	const webcamStream = useRef<MediaStream | null>(null);
 	const mixingContext = useRef<AudioContext | null>(null);
+	const cropPreviewVideo = useRef<HTMLVideoElement | null>(null);
+	const cropCanvas = useRef<HTMLCanvasElement | null>(null);
+	const cropFrameRequest = useRef<number | null>(null);
 	const recordingId = useRef<number>(0);
 	const accumulatedDurationMs = useRef(0);
 	const segmentStartedAt = useRef<number | null>(null);
@@ -145,7 +150,36 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		return Math.round(BITRATE_BASE * highFrameRateBoost);
 	};
 
+	const stopCropPipeline = useCallback(() => {
+		if (cropFrameRequest.current !== null) {
+			window.cancelAnimationFrame(cropFrameRequest.current);
+			cropFrameRequest.current = null;
+		}
+
+		if (cropPreviewVideo.current) {
+			cropPreviewVideo.current.pause();
+			cropPreviewVideo.current.srcObject = null;
+			cropPreviewVideo.current = null;
+		}
+
+		cropCanvas.current = null;
+	}, []);
+
+	const hasCustomRegion = (source: ProcessedDesktopSource | null) => {
+		if (!source?.captureRegion || !source.id.startsWith("screen:")) {
+			return false;
+		}
+
+		return (
+			source.captureRegion.width > MIN_REGION_RATIO &&
+			source.captureRegion.height > MIN_REGION_RATIO &&
+			source.captureRegion.width < 0.999 &&
+			source.captureRegion.height < 0.999
+		);
+	};
+
 	const teardownMedia = useCallback(() => {
+		stopCropPipeline();
 		if (stream.current) {
 			stream.current.getTracks().forEach((track) => track.stop());
 			stream.current = null;
@@ -168,7 +202,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			});
 			mixingContext.current = null;
 		}
-	}, []);
+	}, [stopCropPipeline]);
 
 	const setWebcamEnabled = useCallback(
 		async (enabled: boolean) => {
@@ -470,7 +504,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			if (!videoTrack) {
 				throw new Error("Video track is not available.");
 			}
-			stream.current.addTrack(videoTrack);
 
 			const systemAudioTrack = screenMediaStream.getAudioTracks()[0];
 			const micAudioTrack = microphoneStream.current?.getAudioTracks()[0];
@@ -513,6 +546,66 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 			width = Math.floor(width / CODEC_ALIGNMENT) * CODEC_ALIGNMENT;
 			height = Math.floor(height / CODEC_ALIGNMENT) * CODEC_ALIGNMENT;
+
+			if (hasCustomRegion(selectedSource)) {
+				const previewVideo = document.createElement("video");
+				previewVideo.muted = true;
+				previewVideo.playsInline = true;
+				previewVideo.srcObject = new MediaStream([videoTrack]);
+
+				await new Promise<void>((resolve, reject) => {
+					previewVideo.onloadedmetadata = () => resolve();
+					previewVideo.onerror = () => reject(new Error("Unable to load capture preview"));
+				});
+
+				await previewVideo.play();
+
+				const region = selectedSource.captureRegion!;
+				const cropX = Math.round(previewVideo.videoWidth * region.x);
+				const cropY = Math.round(previewVideo.videoHeight * region.y);
+				const cropWidth = Math.max(
+					CODEC_ALIGNMENT,
+					Math.round(previewVideo.videoWidth * region.width),
+				);
+				const cropHeight = Math.max(
+					CODEC_ALIGNMENT,
+					Math.round(previewVideo.videoHeight * region.height),
+				);
+
+				width = Math.floor(cropWidth / CODEC_ALIGNMENT) * CODEC_ALIGNMENT;
+				height = Math.floor(cropHeight / CODEC_ALIGNMENT) * CODEC_ALIGNMENT;
+
+				const canvas = document.createElement("canvas");
+				canvas.width = width;
+				canvas.height = height;
+				const context = canvas.getContext("2d", {
+					alpha: false,
+					desynchronized: true,
+				});
+				if (!context) {
+					throw new Error("Canvas 2D context is not available.");
+				}
+
+				cropPreviewVideo.current = previewVideo;
+				cropCanvas.current = canvas;
+
+				const drawFrame = () => {
+					context.drawImage(previewVideo, cropX, cropY, cropWidth, cropHeight, 0, 0, width, height);
+					cropFrameRequest.current = window.requestAnimationFrame(drawFrame);
+				};
+
+				drawFrame();
+
+				const croppedStream = canvas.captureStream(frameRate ?? TARGET_FRAME_RATE);
+				const croppedTrack = croppedStream.getVideoTracks()[0];
+				if (!croppedTrack) {
+					throw new Error("Cropped video track is not available.");
+				}
+
+				stream.current.addTrack(croppedTrack);
+			} else {
+				stream.current.addTrack(videoTrack);
+			}
 
 			const videoBitsPerSecond = computeBitrate(width, height);
 			const mimeType = selectMimeType();

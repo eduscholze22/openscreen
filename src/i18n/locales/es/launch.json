@@ -26,9 +26,14 @@
 	},
 	"sourceSelector": {
 		"loading": "Cargando fuentes...",
+		"loadingPreview": "Cargando vista previa...",
 		"screens": "Pantallas ({{count}})",
 		"windows": "Ventanas ({{count}})",
-		"defaultSourceName": "Pantalla"
+		"defaultSourceName": "Pantalla",
+		"shareRegion": "Seleccionar región",
+		"selectRegion": "Selecciona la región a grabar",
+		"regionHint": "Arrastra para elegir la parte de la pantalla que quieres grabar.",
+		"regionLabel": "Región"
 	},
 	"recording": {
 		"selectSource": "Por favor selecciona una fuente para grabar"

@@ -26,9 +26,14 @@
 	},
 	"sourceSelector": {
 		"loading": "Chargement des sources...",
+		"loadingPreview": "Chargement de l'aperçu...",
 		"screens": "Écrans ({{count}})",
 		"windows": "Fenêtres ({{count}})",
-		"defaultSourceName": "Écran"
+		"defaultSourceName": "Écran",
+		"shareRegion": "Sélectionner une zone",
+		"selectRegion": "Sélectionnez la zone à enregistrer",
+		"regionHint": "Faites glisser pour choisir la partie de l'écran à enregistrer.",
+		"regionLabel": "Zone"
 	},
 	"recording": {
 		"selectSource": "Veuillez sélectionner une source à enregistrer"

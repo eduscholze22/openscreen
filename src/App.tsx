@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { LaunchWindow } from "./components/launch/LaunchWindow";
+import { RegionSelector } from "./components/launch/RegionSelector";
 import { SourceSelector } from "./components/launch/SourceSelector";
 import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -15,7 +16,7 @@ export default function App() {
 		const params = new URLSearchParams(window.location.search);
 		const type = params.get("windowType") || "";
 		setWindowType(type);
-		if (type === "hud-overlay" || type === "source-selector") {
+		if (type === "hud-overlay" || type === "source-selector" || type === "region-selector") {
 			document.body.style.background = "transparent";
 			document.documentElement.style.background = "transparent";
 			document.getElementById("root")?.style.setProperty("background", "transparent");
@@ -33,6 +34,8 @@ export default function App() {
 				return <LaunchWindow />;
 			case "source-selector":
 				return <SourceSelector />;
+			case "region-selector":
+				return <RegionSelector />;
 			case "editor":
 				return (
 					<ShortcutsProvider>

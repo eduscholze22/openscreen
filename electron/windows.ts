@@ -11,6 +11,20 @@ const HEADLESS = process.env["HEADLESS"] === "true";
 
 let hudOverlayWindow: BrowserWindow | null = null;
 
+function resolveTargetDisplay(displayId?: string) {
+	const numericDisplayId = Number(displayId);
+	if (Number.isFinite(numericDisplayId)) {
+		const matchedDisplay = screen
+			.getAllDisplays()
+			.find((display) => display.id === numericDisplayId);
+		if (matchedDisplay) {
+			return matchedDisplay;
+		}
+	}
+
+	return screen.getPrimaryDisplay();
+}
+
 ipcMain.on("hud-overlay-hide", () => {
 	if (hudOverlayWindow && !hudOverlayWindow.isDestroyed()) {
 		hudOverlayWindow.minimize();
@@ -147,6 +161,43 @@ export function createSourceSelectorWindow(): BrowserWindow {
 	} else {
 		win.loadFile(path.join(RENDERER_DIST, "index.html"), {
 			query: { windowType: "source-selector" },
+		});
+	}
+
+	return win;
+}
+
+export function createRegionSelectorWindow(displayId?: string): BrowserWindow {
+	const targetDisplay = resolveTargetDisplay(displayId);
+	const { bounds } = targetDisplay;
+
+	const win = new BrowserWindow({
+		x: bounds.x,
+		y: bounds.y,
+		width: bounds.width,
+		height: bounds.height,
+		frame: false,
+		transparent: true,
+		resizable: false,
+		movable: false,
+		fullscreenable: false,
+		alwaysOnTop: true,
+		skipTaskbar: true,
+		show: !HEADLESS,
+		backgroundColor: "#00000000",
+		webPreferences: {
+			preload: path.join(__dirname, "preload.mjs"),
+			nodeIntegration: false,
+			contextIsolation: true,
+			backgroundThrottling: false,
+		},
+	});
+
+	if (VITE_DEV_SERVER_URL) {
+		win.loadURL(VITE_DEV_SERVER_URL + "?windowType=region-selector");
+	} else {
+		win.loadFile(path.join(RENDERER_DIST, "index.html"), {
+			query: { windowType: "region-selector" },
 		});
 	}
 

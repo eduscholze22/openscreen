@@ -26,9 +26,14 @@
 	},
 	"sourceSelector": {
 		"loading": "Loading sources...",
+		"loadingPreview": "Loading preview...",
 		"screens": "Screens ({{count}})",
 		"windows": "Windows ({{count}})",
-		"defaultSourceName": "Screen"
+		"defaultSourceName": "Screen",
+		"shareRegion": "Select region",
+		"selectRegion": "Select recording region",
+		"regionHint": "Drag to choose the part of the screen you want to record.",
+		"regionLabel": "Region"
 	},
 	"recording": {
 		"selectSource": "Please select a source to record"

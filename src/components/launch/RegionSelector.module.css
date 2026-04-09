@@ -1,0 +1,85 @@
+.overlay {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	background: rgba(5, 8, 15, 0.45);
+	backdrop-filter: blur(2px);
+	-webkit-backdrop-filter: blur(2px);
+	user-select: none;
+	overflow: hidden;
+}
+
+.previewViewport {
+	position: relative;
+	flex: 1;
+	overflow: hidden;
+	cursor: crosshair;
+}
+
+.previewImage {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	pointer-events: none;
+	user-select: none;
+	-webkit-user-drag: none;
+	filter: brightness(0.92);
+}
+
+.selection {
+	position: absolute;
+	border: 2px solid rgba(52, 178, 123, 0.95);
+	background: rgba(52, 178, 123, 0.12);
+	box-shadow:
+		0 0 0 9999px rgba(0, 0, 0, 0.38),
+		0 0 0 1px rgba(255, 255, 255, 0.16) inset,
+		0 0 18px rgba(52, 178, 123, 0.35);
+	border-radius: 14px;
+	pointer-events: none;
+}
+
+.hud {
+	position: absolute;
+	top: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	padding: 10px 14px;
+	border-radius: 14px;
+	background: linear-gradient(135deg, rgba(28, 28, 34, 0.94), rgba(18, 18, 22, 0.88));
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+	text-align: center;
+	max-width: min(90vw, 520px);
+	z-index: 1;
+}
+
+.footer {
+	position: absolute;
+	bottom: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	gap: 10px;
+	padding: 10px;
+	border-radius: 999px;
+	background: linear-gradient(135deg, rgba(28, 28, 34, 0.94), rgba(18, 18, 22, 0.88));
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+	z-index: 1;
+}
+
+.dimensionLabel {
+	position: absolute;
+	left: 50%;
+	bottom: -28px;
+	transform: translateX(-50%);
+	padding: 4px 8px;
+	border-radius: 999px;
+	background: rgba(12, 16, 24, 0.88);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	color: rgba(255, 255, 255, 0.88);
+	font-size: 11px;
+	white-space: nowrap;
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+}

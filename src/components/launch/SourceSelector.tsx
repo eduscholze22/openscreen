@@ -1,23 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MdCheck } from "react-icons/md";
 import { useScopedT } from "@/contexts/I18nContext";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import styles from "./SourceSelector.module.css";
 
-interface DesktopSource {
-	id: string;
-	name: string;
-	thumbnail: string | null;
-	display_id: string;
-	appIcon: string | null;
-}
-
 export function SourceSelector() {
 	const t = useScopedT("launch");
 	const tc = useScopedT("common");
-	const [sources, setSources] = useState<DesktopSource[]>([]);
-	const [selectedSource, setSelectedSource] = useState<DesktopSource | null>(null);
+	const [sources, setSources] = useState<ProcessedDesktopSource[]>([]);
+	const [selectedSource, setSelectedSource] = useState<ProcessedDesktopSource | null>(null);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
@@ -31,14 +23,11 @@ export function SourceSelector() {
 				});
 				setSources(
 					rawSources.map((source) => ({
-						id: source.id,
+						...source,
 						name:
 							source.id.startsWith("window:") && source.name.includes(" — ")
 								? source.name.split(" — ")[1] || source.name
 								: source.name,
-						thumbnail: source.thumbnail,
-						display_id: source.display_id,
-						appIcon: source.appIcon,
 					})),
 				);
 			} catch (error) {
@@ -52,10 +41,23 @@ export function SourceSelector() {
 
 	const screenSources = sources.filter((s) => s.id.startsWith("screen:"));
 	const windowSources = sources.filter((s) => s.id.startsWith("window:"));
+	const canSelectRegion = useMemo(
+		() => !!selectedSource && selectedSource.id.startsWith("screen:"),
+		[selectedSource],
+	);
 
-	const handleSourceSelect = (source: DesktopSource) => setSelectedSource(source);
+	const handleSourceSelect = (source: ProcessedDesktopSource) => setSelectedSource(source);
 	const handleShare = async () => {
-		if (selectedSource) await window.electronAPI.selectSource(selectedSource);
+		if (!selectedSource) return;
+		await window.electronAPI.selectSource({ ...selectedSource, captureRegion: undefined });
+	};
+
+	const handleSelectRegion = async () => {
+		if (!selectedSource || !selectedSource.id.startsWith("screen:")) return;
+		await window.electronAPI.openRegionSelector({
+			...selectedSource,
+			captureRegion: undefined,
+		});
 	};
 
 	if (loading) {
@@ -72,13 +74,23 @@ export function SourceSelector() {
 		);
 	}
 
-	const renderSourceCard = (source: DesktopSource) => {
+	const renderSourceCard = (source: ProcessedDesktopSource) => {
 		const isSelected = selectedSource?.id === source.id;
+		const isScreen = source.id.startsWith("screen:");
 		return (
 			<div
 				key={source.id}
 				className={`${styles.sourceCard} ${isSelected ? styles.selected : ""} p-2`}
 				onClick={() => handleSourceSelect(source)}
+				onDoubleClick={() => {
+					handleSourceSelect(source);
+					if (isScreen) {
+						void window.electronAPI.openRegionSelector({
+							...source,
+							captureRegion: undefined,
+						});
+					}
+				}}
 			>
 				<div className="relative mb-1.5">
 					<img
@@ -100,6 +112,20 @@ export function SourceSelector() {
 					)}
 					<div className={`${styles.name} truncate`}>{source.name}</div>
 				</div>
+				{isSelected && isScreen ? (
+					<div className="mt-2 flex justify-end">
+						<Button
+							variant="ghost"
+							onClick={(event) => {
+								event.stopPropagation();
+								void handleSelectRegion();
+							}}
+							className="h-7 px-2 text-[11px] text-[#34B27B] hover:text-white hover:bg-white/5 rounded-full"
+						>
+							{t("sourceSelector.shareRegion")}
+						</Button>
+					</div>
+				) : null}
 			</div>
 		);
 	};
@@ -150,6 +176,14 @@ export function SourceSelector() {
 					className="px-5 py-1 text-xs text-zinc-400 hover:text-white hover:bg-white/5 rounded-full"
 				>
 					{tc("actions.cancel")}
+				</Button>
+				<Button
+					variant="ghost"
+					onClick={handleSelectRegion}
+					disabled={!canSelectRegion}
+					className="px-5 py-1 text-xs text-zinc-300 hover:text-white hover:bg-white/5 rounded-full disabled:text-zinc-600"
+				>
+					{t("sourceSelector.shareRegion")}
 				</Button>
 				<Button
 					onClick={handleShare}

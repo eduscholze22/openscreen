@@ -1,4 +1,6 @@
+import { exec } from "node:child_process";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
@@ -162,12 +164,7 @@ async function getApprovedProjectSession(
 		: { screenVideoPath, createdAt: Date.now() };
 }
 
-type SelectedSource = {
-	name: string;
-	[key: string]: unknown;
-};
-
-let selectedSource: SelectedSource | null = null;
+let selectedSource: ProcessedDesktopSource | null = null;
 let currentProjectPath: string | null = null;
 let currentRecordingSession: RecordingSession | null = null;
 
@@ -335,8 +332,16 @@ function sampleCursorPoint() {
 	const width = Math.max(1, bounds.width);
 	const height = Math.max(1, bounds.height);
 
-	const cx = clamp((cursor.x - bounds.x) / width, 0, 1);
-	const cy = clamp((cursor.y - bounds.y) / height, 0, 1);
+	let cx = clamp((cursor.x - bounds.x) / width, 0, 1);
+	let cy = clamp((cursor.y - bounds.y) / height, 0, 1);
+
+	if (selectedSource?.captureRegion && selectedSource.id.startsWith("screen:")) {
+		const { x, y, width: regionWidth, height: regionHeight } = selectedSource.captureRegion;
+		const safeRegionWidth = Math.max(regionWidth, 0.0001);
+		const safeRegionHeight = Math.max(regionHeight, 0.0001);
+		cx = clamp((cx - x) / safeRegionWidth, 0, 1);
+		cy = clamp((cy - y) / safeRegionHeight, 0, 1);
+	}
 
 	activeCursorSamples.push({
 		timeMs: Math.max(0, Date.now() - cursorCaptureStartTimeMs),
@@ -352,8 +357,10 @@ function sampleCursorPoint() {
 export function registerIpcHandlers(
 	createEditorWindow: () => void,
 	createSourceSelectorWindow: () => BrowserWindow,
+	createRegionSelectorWindow: (displayId?: string) => BrowserWindow,
 	getMainWindow: () => BrowserWindow | null,
 	getSourceSelectorWindow: () => BrowserWindow | null,
+	getRegionSelectorWindow: () => BrowserWindow | null,
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void,
 	switchToHud?: () => void,
 ) {
@@ -374,6 +381,9 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("get-sources", async (_, opts) => {
+		const displaysById = new Map(
+			screen.getAllDisplays().map((display) => [String(display.id), display]),
+		);
 		const sources = await desktopCapturer.getSources(opts);
 		return sources.map((source) => ({
 			id: source.id,
@@ -381,14 +391,31 @@ export function registerIpcHandlers(
 			display_id: source.display_id,
 			thumbnail: source.thumbnail ? source.thumbnail.toDataURL() : null,
 			appIcon: source.appIcon ? source.appIcon.toDataURL() : null,
+			displayBounds: source.display_id
+				? (() => {
+						const display = displaysById.get(source.display_id);
+						if (!display) return undefined;
+						return {
+							x: display.bounds.x,
+							y: display.bounds.y,
+							width: display.bounds.width,
+							height: display.bounds.height,
+							scaleFactor: display.scaleFactor,
+						};
+					})()
+				: undefined,
 		}));
 	});
 
-	ipcMain.handle("select-source", (_, source: SelectedSource) => {
+	ipcMain.handle("select-source", (_, source: ProcessedDesktopSource) => {
 		selectedSource = source;
 		const sourceSelectorWin = getSourceSelectorWindow();
 		if (sourceSelectorWin) {
 			sourceSelectorWin.close();
+		}
+		const regionSelectorWin = getRegionSelectorWindow();
+		if (regionSelectorWin) {
+			regionSelectorWin.close();
 		}
 		return selectedSource;
 	});
@@ -436,6 +463,30 @@ export function registerIpcHandlers(
 			return;
 		}
 		createSourceSelectorWindow();
+	});
+
+	ipcMain.handle("open-region-selector", (_, source?: ProcessedDesktopSource) => {
+		if (source) {
+			selectedSource = source;
+		}
+
+		if (!selectedSource || !selectedSource.id.startsWith("screen:")) {
+			return { success: false, error: "Region selection is only available for screens" };
+		}
+
+		const sourceSelectorWin = getSourceSelectorWindow();
+		if (sourceSelectorWin) {
+			sourceSelectorWin.close();
+		}
+
+		const regionSelectorWin = getRegionSelectorWindow();
+		if (regionSelectorWin) {
+			regionSelectorWin.focus();
+			return { success: true };
+		}
+
+		createRegionSelectorWindow(selectedSource.display_id);
+		return { success: true };
 	});
 
 	ipcMain.handle("switch-to-editor", () => {
@@ -946,6 +997,42 @@ export function registerIpcHandlers(
 			return { success: true };
 		} catch (error) {
 			console.error("Failed to save shortcuts:", error);
+			return { success: false, error: String(error) };
+		}
+	});
+
+	ipcMain.handle("write-gif-temp-file", async (_, gifData: ArrayBuffer) => {
+		try {
+			const buffer = Buffer.from(gifData);
+			const tmpPath = path.join(os.tmpdir(), `openscreen-${Date.now()}.gif`);
+			await fs.writeFile(tmpPath, buffer);
+			// Keep for 10 minutes so the user has time to copy/attach
+			setTimeout(
+				() => {
+					fs.unlink(tmpPath).catch(() => {});
+				},
+				10 * 60 * 1000,
+			);
+			return { success: true, path: tmpPath };
+		} catch (error) {
+			console.error("Failed to write GIF temp file:", error);
+			return { success: false, error: String(error) };
+		}
+	});
+
+	ipcMain.handle("copy-gif-to-clipboard", async (_, gifPath: string) => {
+		try {
+			await new Promise<void>((resolve, reject) => {
+				// Use PowerShell Set-Clipboard -Path to copy the file to clipboard (CF_HDROP)
+				const cmd = `powershell -NoProfile -NonInteractive -Command "Set-Clipboard -Path '${gifPath}'"`;
+				exec(cmd, (error) => {
+					if (error) reject(error);
+					else resolve();
+				});
+			});
+			return { success: true };
+		} catch (error) {
+			console.error("Failed to copy GIF to clipboard:", error);
 			return { success: false, error: String(error) };
 		}
 	});

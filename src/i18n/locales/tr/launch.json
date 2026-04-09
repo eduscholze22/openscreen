@@ -37,9 +37,14 @@
 	},
 	"sourceSelector": {
 		"loading": "Kaynaklar yükleniyor...",
+		"loadingPreview": "Önizleme yükleniyor...",
 		"screens": "Ekranlar ({{count}})",
 		"windows": "Pencereler ({{count}})",
-		"defaultSourceName": "Ekran"
+		"defaultSourceName": "Ekran",
+		"shareRegion": "Bölge seç",
+		"selectRegion": "Kayıt bölgesini seç",
+		"regionHint": "Kaydetmek istediğiniz ekran alanını seçmek için sürükleyin.",
+		"regionLabel": "Bölge"
 	},
 	"recording": {
 		"selectSource": "Lütfen kayıt için bir kaynak seçin"

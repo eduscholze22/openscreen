@@ -162,7 +162,7 @@ export function LaunchWindow() {
 		});
 	}, []);
 
-	const [selectedSource, setSelectedSource] = useState("Screen");
+	const [selectedSource, setSelectedSource] = useState(t("sourceSelector.defaultSourceName"));
 	const [hasSelectedSource, setHasSelectedSource] = useState(false);
 
 	useEffect(() => {
@@ -170,10 +170,14 @@ export function LaunchWindow() {
 			if (window.electronAPI) {
 				const source = await window.electronAPI.getSelectedSource();
 				if (source) {
-					setSelectedSource(source.name);
+					setSelectedSource(
+						source.captureRegion
+							? `${source.name} • ${t("sourceSelector.regionLabel")}`
+							: source.name,
+					);
 					setHasSelectedSource(true);
 				} else {
-					setSelectedSource("Screen");
+					setSelectedSource(t("sourceSelector.defaultSourceName"));
 					setHasSelectedSource(false);
 				}
 			}
@@ -183,7 +187,7 @@ export function LaunchWindow() {
 
 		const interval = setInterval(checkSelectedSource, 500);
 		return () => clearInterval(interval);
-	}, []);
+	}, [t]);
 
 	const openSourceSelector = () => {
 		if (window.electronAPI) {

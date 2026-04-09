@@ -26,9 +26,14 @@
 	},
 	"sourceSelector": {
 		"loading": "正在加载源...",
+		"loadingPreview": "正在加载预览...",
 		"screens": "屏幕 ({{count}})",
 		"windows": "窗口 ({{count}})",
-		"defaultSourceName": "屏幕"
+		"defaultSourceName": "屏幕",
+		"shareRegion": "选择区域",
+		"selectRegion": "选择录制区域",
+		"regionHint": "拖动以选择你想录制的屏幕区域。",
+		"regionLabel": "区域"
 	},
 	"recording": {
 		"selectSource": "请选择要录制的源"
