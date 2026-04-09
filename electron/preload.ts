@@ -27,6 +27,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	openSourceSelector: () => {
 		return ipcRenderer.invoke("open-source-selector");
 	},
+	openRegionSelector: (source?: ProcessedDesktopSource) => {
+		return ipcRenderer.invoke("open-region-selector", source);
+	},
 	selectSource: (source: ProcessedDesktopSource) => {
 		return ipcRenderer.invoke("select-source", source);
 	},
@@ -120,6 +123,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	saveShortcuts: (shortcuts: unknown) => {
 		return ipcRenderer.invoke("save-shortcuts", shortcuts);
+	},
+	writeGifTempFile: (gifData: ArrayBuffer) => {
+		return ipcRenderer.invoke("write-gif-temp-file", gifData);
+	},
+	copyGifToClipboard: (gifPath: string) => {
+		return ipcRenderer.invoke("copy-gif-to-clipboard", gifPath);
 	},
 	setLocale: (locale: string) => {
 		return ipcRenderer.invoke("set-locale", locale);
